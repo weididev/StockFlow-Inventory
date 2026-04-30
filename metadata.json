@@ -1,0 +1,6 @@
+{
+  "name": "StockFlow",
+  "description": "An advanced, offline-first inventory and stock management system for office use with real-time tracking, reports, and low-stock alerts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
