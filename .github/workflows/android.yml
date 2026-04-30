@@ -42,6 +42,18 @@ jobs:
         npx cap add android
         npx cap sync android
 
+    - name: Fix Kotlin Duplicate Classes
+      run: |
+        cat << 'EOF' >> android/app/build.gradle
+        
+        dependencies {
+            constraints {
+                implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22")
+                implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22")
+            }
+        }
+        EOF
+
     - name: Build APK (Debug)
       run: |
         cd android
