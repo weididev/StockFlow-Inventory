@@ -10,14 +10,14 @@ interface HistoryLogsProps {
 export function HistoryLogs({ history }: HistoryLogsProps) {
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input 
                 type="text" 
                 placeholder="Search history..." 
-                className="pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 w-64 dark:text-white"
+                className="pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 w-full sm:w-64 dark:text-white"
               />
             </div>
             <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-800 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:text-gray-300">
@@ -56,8 +56,8 @@ export function HistoryLogs({ history }: HistoryLogsProps) {
         </button>
       </div>
 
-      <div className="bg-white dark:bg-gray-950 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
-        <div className="flex flex-col">
+      <div className="bg-white dark:bg-gray-950 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-x-auto">
+        <div className="flex flex-col min-w-[500px]">
           {history.map((log, index) => (
             <div 
               key={log.id} 
