@@ -160,12 +160,12 @@ export function Dashboard({ items, history }: DashboardProps) {
       </div>
 
       {/* Recent Activity Mini-list */}
-      <div className="bg-white dark:bg-gray-950 p-8 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white dark:bg-gray-950 p-8 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-x-auto">
+        <div className="flex items-center justify-between mb-6 min-w-[300px]">
           <h3 className="font-bold text-lg dark:text-white">Recent Movements</h3>
           <button className="text-xs font-bold text-gray-400 hover:text-black dark:hover:text-white transition-colors uppercase tracking-wider">View All</button>
         </div>
-        <div className="flex flex-col">
+        <div className="flex flex-col min-w-[400px]">
           {recentActivity.map((log) => (
             <div key={log.id} className="flex items-center justify-between py-4 border-b border-gray-50 dark:border-gray-800 last:border-0">
               <div className="flex items-center gap-4">
