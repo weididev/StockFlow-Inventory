@@ -29,12 +29,13 @@ export function InventoryList({ inventory }: InventoryListProps) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isGiveModalOpen, setIsGiveModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     category: '',
-    quantity: 0,
-    minStock: 5,
+    quantity: '' as number | string,
+    minStock: '' as number | string,
     unit: 'Pcs',
   });
   const [giveData, setGiveData] = useState({
@@ -52,7 +53,11 @@ export function InventoryList({ inventory }: InventoryListProps) {
 
   const handleAddSubmit = (e: FormEvent) => {
     e.preventDefault();
-    inventory.addItem(formData);
+    inventory.addItem({
+      ...formData,
+      quantity: Number(formData.quantity) || 0,
+      minStock: Number(formData.minStock) || 0
+    });
     setIsAddModalOpen(false);
     resetForm();
   };
@@ -60,7 +65,12 @@ export function InventoryList({ inventory }: InventoryListProps) {
   const handleEditSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (selectedItem) {
-      inventory.updateItem({ ...selectedItem, ...formData });
+      inventory.updateItem({ 
+        ...selectedItem, 
+        ...formData,
+        quantity: Number(formData.quantity) || 0,
+        minStock: Number(formData.minStock) || 0
+      });
       setIsEditModalOpen(false);
       resetForm();
     }
@@ -99,14 +109,14 @@ export function InventoryList({ inventory }: InventoryListProps) {
   }
 
   const resetForm = () => {
-    setFormData({ name: '', category: '', quantity: 0, minStock: 5, unit: 'Pcs' });
+    setFormData({ name: '', category: '', quantity: '', minStock: '', unit: 'Pcs' });
     setSelectedItem(null);
   };
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
@@ -131,8 +141,8 @@ export function InventoryList({ inventory }: InventoryListProps) {
         </button>
       </div>
 
-      <div className="bg-white dark:bg-gray-950 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
-        <table className="w-full text-left border-collapse">
+      <div className="bg-white dark:bg-gray-950 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-x-auto">
+        <table className="w-full text-left border-collapse whitespace-nowrap">
           <thead>
             <tr className="border-b border-gray-50 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900">
               <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Item Details</th>
@@ -215,7 +225,7 @@ export function InventoryList({ inventory }: InventoryListProps) {
                       <Edit2 size={18} />
                     </button>
                     <button 
-                      onClick={() => inventory.removeItem(item.id)}
+                      onClick={() => setItemToDelete(item)}
                       className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-gray-800 rounded-lg transition-all"
                     >
                       <Trash2 size={18} />
@@ -242,14 +252,56 @@ export function InventoryList({ inventory }: InventoryListProps) {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Item Name</label>
-              <input 
-                required
-                type="text" 
-                placeholder="e.g. Printer Paper A4"
-                className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:text-white"
-                value={formData.name}
-                onChange={e => setFormData({...formData, name: e.target.value})}
-              />
+              <div className="relative z-20">
+                <input 
+                  required
+                  type="text" 
+                  autoComplete="off"
+                  placeholder="e.g. Printer Paper A4"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:text-white"
+                  value={formData.name}
+                  onChange={e => {
+                    const val = e.target.value;
+                    const existingItem = inventory.items.find(i => i.name.toLowerCase() === val.toLowerCase());
+                    if (existingItem) {
+                      setFormData({...formData, name: val, category: existingItem.category, unit: existingItem.unit});
+                    } else {
+                      setFormData({...formData, name: val});
+                    }
+                  }}
+                />
+                {formData.name.length >= 1 && (
+                  (() => {
+                    const matches = Array.from(new Set(inventory.items.map(i => i.name)))
+                      .filter(name => name.toLowerCase().startsWith(formData.name.toLowerCase()) && name.toLowerCase() !== formData.name.toLowerCase());
+                    
+                    if (matches.length === 0) return null;
+                    
+                    return (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl shadow-xl overflow-hidden z-30 max-h-48 overflow-y-auto">
+                        {matches.map((name, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:text-white border-b border-gray-50 dark:border-gray-800 last:border-0"
+                            onClick={() => {
+                              const existingItem = inventory.items.find(i => i.name.toLowerCase() === name.toLowerCase());
+                              if (existingItem) {
+                                setFormData({...formData, name, category: existingItem.category, unit: existingItem.unit});
+                              } else {
+                                setFormData({...formData, name});
+                              }
+                            }}
+                          >
+                            <span className="font-bold">{name.slice(0, formData.name.length)}</span>
+                            {name.slice(formData.name.length)}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
@@ -257,11 +309,17 @@ export function InventoryList({ inventory }: InventoryListProps) {
                 <input 
                   required
                   type="text" 
+                  list="item-category-suggestions"
                   placeholder="e.g. Stationery"
                   className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:text-white"
                   value={formData.category}
                   onChange={e => setFormData({...formData, category: e.target.value})}
                 />
+                <datalist id="item-category-suggestions">
+                  {Array.from(new Set(inventory.items.map(item => item.category))).map((cat, idx) => (
+                    <option key={idx} value={cat} />
+                  ))}
+                </datalist>
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Unit</label>
@@ -287,7 +345,7 @@ export function InventoryList({ inventory }: InventoryListProps) {
                   min="0"
                   className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:text-white"
                   value={formData.quantity}
-                  onChange={e => setFormData({...formData, quantity: parseInt(e.target.value) || 0})}
+                  onChange={e => setFormData({...formData, quantity: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0)})}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -298,7 +356,7 @@ export function InventoryList({ inventory }: InventoryListProps) {
                   min="0"
                   className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:text-white"
                   value={formData.minStock}
-                  onChange={e => setFormData({...formData, minStock: parseInt(e.target.value) || 0})}
+                  onChange={e => setFormData({...formData, minStock: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0)})}
                 />
               </div>
             </div>
@@ -337,6 +395,33 @@ export function InventoryList({ inventory }: InventoryListProps) {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Quantity</label>
+                  <input 
+                    required
+                    type="number" 
+                    min="0"
+                    className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:text-white"
+                    value={formData.quantity}
+                    onChange={e => setFormData({...formData, quantity: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0)})}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Unit</label>
+                  <select 
+                    className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:text-white"
+                    value={formData.unit}
+                    onChange={e => setFormData({...formData, unit: e.target.value})}
+                  >
+                    <option>Pcs</option>
+                    <option>Boxes</option>
+                    <option>Packets</option>
+                    <option>Rolls</option>
+                    <option>Units</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Category</label>
                   <input 
                     required
@@ -353,7 +438,7 @@ export function InventoryList({ inventory }: InventoryListProps) {
                     type="number" 
                     className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:text-white"
                     value={formData.minStock}
-                    onChange={e => setFormData({...formData, minStock: parseInt(e.target.value) || 0})}
+                    onChange={e => setFormData({...formData, minStock: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0)})}
                   />
                 </div>
               </div>
@@ -431,6 +516,38 @@ export function InventoryList({ inventory }: InventoryListProps) {
            </div>
         </div>
         <p className="mt-4 text-[10px] text-gray-400 italic text-center">Click one of the above colored action buttons to confirm movement.</p>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={!!itemToDelete} onClose={() => setItemToDelete(null)} title="Confirm Deletion">
+        <div className="flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center mb-6">
+            <Trash2 size={32} />
+          </div>
+          <h3 className="text-lg font-bold mb-2 dark:text-white">Delete Item?</h3>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mb-8">
+            Are you sure you want to permanently delete <span className="font-bold text-gray-900 dark:text-gray-200">"{itemToDelete?.name}"</span>? This action cannot be undone.
+          </p>
+          <div className="flex gap-4 w-full">
+            <button 
+              onClick={() => setItemToDelete(null)}
+              className="flex-1 py-4 text-sm font-bold text-gray-500 hover:text-black dark:hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={() => {
+                if (itemToDelete) {
+                  inventory.removeItem(itemToDelete.id);
+                  setItemToDelete(null);
+                }
+              }}
+              className="flex-2 py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-sm font-bold shadow-xl shadow-red-500/20 transition-all"
+            >
+              Confirm Delete
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
