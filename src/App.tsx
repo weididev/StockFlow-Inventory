@@ -67,44 +67,42 @@ export default function App() {
       };
       
       const jsonString = JSON.stringify(backupData, null, 2);
-      
-      try {
-        await navigator.clipboard.writeText(jsonString);
-      } catch (err) {
-        console.warn("Clipboard copy failed:", err);
-      }
-
       const fileName = `stockflow-backup-${new Date().toISOString().slice(0,10)}.txt`;
       const file = new File([jsonString], fileName, { type: 'text/plain' });
   
       const downloadFallback = () => {
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName.replace('.txt', '.json');
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        try {
+          const blob = new Blob([jsonString], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+          a.download = fileName.replace('.txt', '.json');
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }, 100);
+        } catch (e) {
+          console.error("Fallback download failed:", e);
+        }
       };
   
-      if (navigator.share) {
+      if (typeof navigator !== 'undefined' && navigator.share) {
         try {
-          const shareData: ShareData = {
-            title: 'StockFlow DB Backup',
-            text: 'System generated inventory backup file.'
-          };
-          
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            shareData.files = [file];
+            await navigator.share({
+              files: [file],
+              title: 'StockFlow Backup',
+              text: 'StockFlow DB Backup'
+            });
           } else {
-            shareData.text = jsonString;
+            console.warn("File sharing not supported on this platform. Falling back to local download.");
+            downloadFallback();
           }
-          
-          await navigator.share(shareData);
-        } catch (err) {
-          if ((err as Error).name !== 'AbortError') {
+        } catch (err: any) {
+          if (err.name !== 'AbortError') {
             console.error("System share failed:", err);
             downloadFallback();
           }
