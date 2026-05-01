@@ -58,62 +58,35 @@ export default function App() {
   }, [isDarkMode]);
 
   const exportBackup = async () => {
-    try {
-      const backupData = {
-        inventory: inventory.items,
-        history: inventory.history,
-        notifications: inventory.notifications,
-        exportedAt: new Date().toISOString()
-      };
-      
-      const jsonString = JSON.stringify(backupData, null, 2);
-      const fileName = `stockflow-backup-${new Date().toISOString().slice(0, 10)}.txt`;
+    const backupData = {
+      inventory: inventory.items,
+      history: inventory.history,
+      notifications: inventory.notifications,
+      exportedAt: new Date().toISOString()
+    };
+    
+    const fileName = `stockflow-db-${new Date().toISOString().slice(0,10)}.txt`;
+    const jsonString = JSON.stringify(backupData, null, 2);
+    const file = new File([jsonString], fileName, { type: 'text/plain' });
 
-      const copyToClipboard = () => {
-        try {
-          const textArea = document.createElement("textarea");
-          textArea.value = jsonString;
-          textArea.style.position = "fixed"; 
-          textArea.style.left = "-999999px";
-          textArea.style.top = "-999999px";
-          document.body.appendChild(textArea);
-          textArea.focus();
-          textArea.select();
-          document.execCommand("copy");
-          textArea.remove();
-          alert("Backup content copied to clipboard! ✅\n\nPaste this text into Whatsapp or Notes to save it safely.");
-        } catch (err) {
-          alert("Could not copy or share the backup. Please try opening this app in a standard browser (like Chrome/Safari).");
+    if (navigator.share) {
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'StockFlow Backup',
+            text: 'StockFlow Inventory Backup File'
+          });
+        } else {
+          alert("Your browser doesn't support sharing files directly.");
         }
-      };
-
-      if (navigator.share) {
-        try {
-          const file = new File([jsonString], fileName, { type: 'text/plain' });
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              files: [file],
-              title: 'StockFlow Backup',
-              text: 'Save this file to backup your inventory'
-            });
-          } else {
-            // Share as text message directly. This is bulletproof on Android WebViews!
-            await navigator.share({
-              title: 'StockFlow Backup Data',
-              text: jsonString
-            });
-          }
-        } catch (error: any) {
-          if (error.name !== 'AbortError') {
-             copyToClipboard();
-          }
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          console.error("Share failed:", error);
         }
-      } else {
-        copyToClipboard();
       }
-    } catch (error) {
-      console.error("Export process failed:", error);
-      alert("Failed to build backup data.");
+    } else {
+      alert("Sharing is not supported on this device/browser.");
     }
   };
 
