@@ -69,56 +69,28 @@ export default function App() {
       const fileName = `stockflow-db-${new Date().toISOString().slice(0,10)}.json`;
       const jsonString = JSON.stringify(backupData, null, 2);
       
-      // Use text/plain for the file type. Web Share API on Android often rejects application/json.
-      const file = new File([jsonString], fileName, { type: 'text/plain' });
-
-      // Many Android WebViews have navigator.share but lack navigator.canShare. 
-      // Do NOT check canShare. Just try/catch.
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: 'StockFlow Backup'
-          });
-          return; // Success!
-        } catch (error: any) {
-          // If the user just cancelled the share menu, do nothing.
-          if (error.name === 'AbortError' || error.message.includes('Share canceled')) {
-            return;
-          }
-          console.error("File sharing failed, trying text fallback:", error);
-          
-          // Fallback to sharing raw text if the WebView blocks file sharing entirely
-          try {
-            await navigator.share({
-              title: 'StockFlow Backup',
-              text: jsonString
-            });
-            return; // Success!
-          } catch (textError) {
-             console.error("Text sharing failed:", textError);
-          }
-        }
-      }
-
-      // Universal fallback for PC / Desktop browsers
+      // CREATE BLOB ("CACHE MEMORY" / "CATCH MEMORY") AND SHARE DIRECTLY
       const blob = new Blob([jsonString], { type: 'application/json' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      
-      setTimeout(() => {
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      }, 100);
+      const file = new File([blob], fileName, { type: 'application/json' });
 
+      if (navigator.share) {
+        await navigator.share({
+          files: [file],
+          title: 'StockFlow Backup',
+          text: 'StockFlow DB Backup'
+        });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
     } catch (error) {
       console.error("Backup export failed:", error);
-      alert("Failed to export backup. Please try again.");
     }
   };
 
