@@ -17,11 +17,12 @@ import { cn } from '../lib/utils';
 interface DashboardProps {
   items: InventoryItem[];
   history: Transaction[];
+  onNavigate?: (tab: 'dashboard' | 'inventory' | 'history' | 'analytics') => void;
 }
 
 const COLORS = ['#000000', '#4F46E5', '#10B981', '#F59E0B', '#EF4444'];
 
-export function Dashboard({ items, history }: DashboardProps) {
+export function Dashboard({ items, history, onNavigate }: DashboardProps) {
   const lowStockItems = items.filter(i => i.quantity <= i.minStock);
   const totalItems = items.reduce((acc, curr) => acc + curr.quantity, 0);
   
@@ -39,31 +40,35 @@ export function Dashboard({ items, history }: DashboardProps) {
   // Last 7 days activity
   const recentActivity = history.slice(0, 5);
 
-  const StatCard = ({ icon: Icon, label, value, colorClass, subText }: any) => (
-    <div className="bg-white dark:bg-gray-950 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-4">
-        <div className={cn("p-3 rounded-2xl", colorClass)}>
-          <Icon size={24} className="text-white" />
+  const StatCard = ({ icon: Icon, label, value, colorClass, subText, onClick }: any) => (
+    <button 
+      onClick={onClick}
+      className="bg-white dark:bg-gray-950 p-4 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow flex flex-col text-left group"
+    >
+      <div className="flex items-center gap-3 mb-3 w-full">
+        <div className={cn("p-2 rounded-xl group-hover:scale-105 transition-transform", colorClass)}>
+          <Icon size={18} className="text-white" />
         </div>
-        <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{label}</span>
+        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{label}</span>
       </div>
       <div className="flex flex-col">
-        <span className="text-3xl font-bold dark:text-white">{value}</span>
-        <span className="text-xs text-gray-400 mt-1">{subText}</span>
+        <span className="text-2xl font-bold dark:text-white leading-none mb-1">{value}</span>
+        <span className="text-[10px] text-gray-400 leading-tight">{subText}</span>
       </div>
-    </div>
+    </button>
   );
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 gap-4">
         <StatCard 
           icon={Package} 
           label="Total Stock" 
           value={totalItems} 
-          colorClass="bg-black" 
+          colorClass="bg-black dark:bg-gray-800" 
           subText="Current items across all categories"
+          onClick={() => onNavigate?.('inventory')}
         />
         <StatCard 
           icon={AlertTriangle} 
@@ -71,6 +76,7 @@ export function Dashboard({ items, history }: DashboardProps) {
           value={lowStockItems.length} 
           colorClass="bg-amber-500" 
           subText="Items requiring restock"
+          onClick={() => onNavigate?.('inventory')}
         />
         <StatCard 
           icon={TrendingUp} 
@@ -78,6 +84,7 @@ export function Dashboard({ items, history }: DashboardProps) {
           value={history.filter(h => h.type === 'IN').length} 
           colorClass="bg-emerald-500" 
           subText="Total refills processed"
+          onClick={() => onNavigate?.('inventory')}
         />
         <StatCard 
           icon={TrendingDown} 
@@ -85,10 +92,11 @@ export function Dashboard({ items, history }: DashboardProps) {
           value={history.filter(h => h.type === 'OUT').length} 
           colorClass="bg-red-500" 
           subText="Distribution requests handled"
+          onClick={() => onNavigate?.('history')}
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Chart */}
         <div className="lg:col-span-2 bg-white dark:bg-gray-950 p-8 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
           <div className="flex items-center justify-between mb-8">
@@ -160,10 +168,15 @@ export function Dashboard({ items, history }: DashboardProps) {
       </div>
 
       {/* Recent Activity Mini-list */}
-      <div className="bg-white dark:bg-gray-950 p-8 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-x-auto">
+      <div className="bg-white dark:bg-gray-950 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-x-auto">
         <div className="flex items-center justify-between mb-6 min-w-[300px]">
           <h3 className="font-bold text-lg dark:text-white">Recent Movements</h3>
-          <button className="text-xs font-bold text-gray-400 hover:text-black dark:hover:text-white transition-colors uppercase tracking-wider">View All</button>
+          <button 
+            onClick={() => onNavigate?.('history')}
+            className="text-xs font-bold text-gray-400 hover:text-black dark:hover:text-white transition-colors uppercase tracking-wider"
+          >
+            View All
+          </button>
         </div>
         <div className="flex flex-col min-w-[400px]">
           {recentActivity.map((log) => (
