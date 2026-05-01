@@ -132,12 +132,14 @@ export function useInventory() {
     setNotifications(prev => prev.filter(n => n.itemId !== id));
   };
 
-  const addTransaction = (t: Omit<Transaction, 'id' | 'timestamp'>, skipItemUpdate = false) => {
+  const addTransaction = (t: Omit<Transaction, 'id' | 'timestamp' | 'itemCategory'> & { itemCategory?: string }, skipItemUpdate = false) => {
+    const item = items.find(i => i.id === t.itemId);
     const transaction: Transaction = {
       ...t,
+      itemCategory: t.itemCategory || item?.category || 'General',
       id: crypto.randomUUID(),
       timestamp: new Date().toISOString(),
-    };
+    } as Transaction;
     setHistory(prev => [transaction, ...prev]);
 
     if (!skipItemUpdate) {
