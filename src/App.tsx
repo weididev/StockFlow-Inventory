@@ -58,49 +58,56 @@ export default function App() {
   }, [isDarkMode]);
 
   const exportBackup = async () => {
-    const data = {
-      inventory: localStorage.getItem('inventory_items'),
-      history: localStorage.getItem('inventory_history'),
-      notifications: localStorage.getItem('inventory_notifications')
-    };
-    const jsonString = JSON.stringify(data);
-    const blob = new Blob([jsonString], { type: 'application/json' });
-    const file = new File([blob], `StockFlow_Backup_${new Date().toISOString().split('T')[0]}.json`, { type: 'application/json' });
-    
-    const downloadFallback = () => {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = file.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    };
-
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({
-          files: [file],
-          title: 'StockFlow Backup',
-          text: 'Here is my StockFlow data backup.',
-        });
-      } catch (err) {
-        console.error("Error sharing", err);
-        downloadFallback();
-      }
-    } else {
+    try {
+      const backupData = {
+        inventory: JSON.stringify(inventory.items),
+        history: JSON.stringify(inventory.history),
+        notifications: JSON.stringify(inventory.notifications),
+        exportedBy: "StockFlow System",
+        exportedAt: new Date().toISOString()
+      };
+      
+      const fileName = `stockflow-backup-${new Date().toISOString().slice(0,10)}.json`;
+      const jsonString = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const file = new File([blob], fileName, { type: 'application/json' });
+  
+      const downloadFallback = () => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+  
       if (navigator.share) {
         try {
-          // If files can't be shared, maybe the user wants to share via Web Share API
-          // but we can't share local blob URLs easily. So we fallback to download.
-          downloadFallback();
+          const shareData: any = {
+            title: 'StockFlow DB Backup',
+            text: 'System generated inventory backup file.',
+          };
+          
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            shareData.files = [file];
+          }
+          
+          await navigator.share(shareData);
+          return;
         } catch (err) {
-          downloadFallback();
+          if ((err as Error).name !== 'AbortError') {
+            console.error("System share failed:", err);
+            downloadFallback();
+          }
         }
       } else {
         downloadFallback();
       }
+    } catch (error) {
+      console.error("Export process failed:", error);
+      alert("Failed to export database.");
     }
   };
 
@@ -115,15 +122,25 @@ export default function App() {
       reader.onload = (e) => {
         try {
           const contentStr = e.target?.result as string;
-          // The result will be a JSON string that contains properties which are themselves stringified JSON strings from localStorage
           const data = JSON.parse(contentStr);
-          if (data.inventory) localStorage.setItem('inventory_items', data.inventory);
-          if (data.history) localStorage.setItem('inventory_history', data.history);
-          if (data.notifications) localStorage.setItem('inventory_notifications', data.notifications);
-          alert("Backup restored successfully. App will refresh to apply changes.");
+          
+          // Support both direct arrays (new) and stringified (old storage style)
+          const setStorage = (key: string, val: any) => {
+            if (typeof val === 'string') {
+              localStorage.setItem(key, val);
+            } else if (val) {
+              localStorage.setItem(key, JSON.stringify(val));
+            }
+          };
+
+          if (data.inventory || data.items) setStorage('inventory_items', data.inventory || data.items);
+          if (data.history) setStorage('inventory_history', data.history);
+          if (data.notifications) setStorage('inventory_notifications', data.notifications);
+          
+          alert("Import successful! The app will now reload.");
           window.location.reload();
         } catch (err) {
-          alert("Invalid backup file.");
+          alert("Could not process the backup file. Please ensure it is a valid StockFlow JSON file.");
         }
       };
       reader.readAsText(file);
