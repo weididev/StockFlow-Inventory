@@ -4,6 +4,7 @@ export interface Transaction {
   id: string;
   itemId: string;
   itemName: string;
+  itemCategory: string;
   type: TransactionType;
   quantity: number;
   recipient: string; // Who gave/received it
