@@ -58,35 +58,46 @@ export default function App() {
   }, [isDarkMode]);
 
   const exportBackup = async () => {
-    const backupData = {
-      inventory: inventory.items,
-      history: inventory.history,
-      notifications: inventory.notifications,
-      exportedAt: new Date().toISOString()
-    };
-    
-    const fileName = `stockflow-db-${new Date().toISOString().slice(0,10)}.txt`;
-    const jsonString = JSON.stringify(backupData, null, 2);
-    const file = new File([jsonString], fileName, { type: 'text/plain' });
+    try {
+      const backupData = {
+        inventory: inventory.items,
+        history: inventory.history,
+        notifications: inventory.notifications,
+        exportedAt: new Date().toISOString()
+      };
+      
+      const fileName = `stockflow-db-${new Date().toISOString().slice(0,10)}.json`;
+      const jsonString = JSON.stringify(backupData, null, 2);
+      
+      // CRITICAL: Must use 'text/plain' so Android Web Share API accepts the file.
+      // application/json is rejected by navigator.canShare on many devices.
+      const file = new File([jsonString], fileName, { type: 'text/plain' });
 
-    if (navigator.share) {
-      try {
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: 'StockFlow Backup',
-            text: 'StockFlow Inventory Backup File'
-          });
-        } else {
-          alert("Your browser doesn't support sharing files directly.");
-        }
-      } catch (error: any) {
-        if (error.name !== 'AbortError') {
-          console.error("Share failed:", error);
-        }
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'StockFlow Backup',
+          text: 'StockFlow Inventory Backup File'
+        });
+        return;
       }
-    } else {
-      alert("Sharing is not supported on this device/browser.");
+
+      // Fallback for desktop browsers
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+
+    } catch (error) {
+      console.error("Backup export failed:", error);
     }
   };
 
