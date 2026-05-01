@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, 
   Package, 
@@ -18,7 +18,9 @@ import {
   Moon,
   X,
   DatabaseBackup,
-  UploadCloud
+  UploadCloud,
+  Menu,
+  Plus
 } from 'lucide-react';
 import { useInventory } from './hooks/useInventory';
 import { cn } from './lib/utils';
@@ -26,16 +28,20 @@ import { Dashboard } from './components/Dashboard';
 import { InventoryList } from './components/InventoryList';
 import { HistoryLogs } from './components/HistoryLogs';
 import { NotificationsPanel } from './components/NotificationsPanel';
+import { QuickActionModal } from './components/QuickActionModal';
+import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 
-type Tab = 'dashboard' | 'inventory' | 'history';
+type Tab = 'dashboard' | 'inventory' | 'history' | 'analytics';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark' || 
       (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
   const inventory = useInventory();
   
   const unreadCount = inventory.notifications.filter(n => !n.read).length;
@@ -117,7 +123,10 @@ export default function App() {
 
   const NavItem = ({ icon: Icon, label, tab }: { icon: any, label: string, tab: Tab }) => (
     <button
-      onClick={() => setActiveTab(tab)}
+      onClick={() => {
+        setActiveTab(tab);
+        setIsMobileMenuOpen(false);
+      }}
       className={cn(
         "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative",
         activeTab === tab 
@@ -139,8 +148,24 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-[#F8F9FA] dark:bg-gray-900 text-[#1A1A1A] dark:text-gray-100 font-sans overflow-hidden">
+      {/* Mobile Menu Backdrop */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
-      <aside className="w-64 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex flex-col p-6 gap-8">
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-40 w-64 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex flex-col p-6 gap-8 transform transition-transform duration-300 md:relative md:translate-x-0",
+        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
         <div className="flex items-center gap-3 px-2">
           <div className="w-10 h-10 bg-black dark:bg-white rounded-xl flex items-center justify-center text-white dark:text-black">
             <Package size={24} />
@@ -155,6 +180,7 @@ export default function App() {
           <NavItem icon={LayoutDashboard} label="Dashboard" tab="dashboard" />
           <NavItem icon={Package} label="Inventory" tab="inventory" />
           <NavItem icon={HistoryIcon} label="Activity History" tab="history" />
+          <NavItem icon={TrendingUp} label="Smart Analytics" tab="analytics" />
           
           <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
           
@@ -175,31 +201,30 @@ export default function App() {
           </button>
         </nav>
 
-        <div className="flex flex-col gap-4">
-          <div className="bg-gray-50 dark:bg-gray-900 rounded-2xl p-4 flex flex-col gap-2 border border-gray-100 dark:border-gray-800">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-gray-400 uppercase">Status</span>
-              <div className="flex h-2 w-2 rounded-full bg-green-500"></div>
-            </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">All systems offline & local</p>
+        <div className="flex flex-col gap-4 mt-auto">
+          <div className="text-center opacity-50 hover:opacity-100 transition-opacity">
+            <p className="text-xs text-gray-400 font-medium tracking-wider uppercase">Developer: Weididev</p>
           </div>
-          
-          <button className="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-red-500 transition-colors duration-200">
-            <LogOut size={20} />
-            <span className="font-medium text-sm">Sign Out</span>
-          </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden relative bg-[#F8F9FA] dark:bg-gray-900">
-        <header className="h-20 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex items-center justify-between px-8 shrink-0">
-          <div>
-            <h2 className="text-xl font-bold capitalize">{activeTab}</h2>
-            <p className="text-xs text-gray-400">Manage your items and track stock efficiently.</p>
+      <main className="flex-1 flex flex-col overflow-hidden relative bg-[#F8F9FA] dark:bg-gray-900 w-full">
+        <header className="h-20 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex items-center justify-between px-4 md:px-8 shrink-0">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="md:hidden w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="hidden md:block">
+              <h2 className="text-xl font-bold capitalize">{activeTab}</h2>
+              <p className="text-xs text-gray-400">Manage your items and track stock efficiently.</p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <button 
               onClick={() => setIsDarkMode(!isDarkMode)}
               className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer transition-colors"
@@ -217,18 +242,24 @@ export default function App() {
                 </span>
               )}
             </button>
-            <div className="relative group">
+            <button 
+              onClick={() => setIsQuickActionOpen(true)}
+              className="w-10 h-10 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center hover:scale-105 active:scale-95 cursor-pointer transition-all shadow-lg"
+            >
+              <Plus size={20} />
+            </button>
+            <div className="relative group hidden sm:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 group-focus-within:text-black dark:group-focus-within:text-white transition-colors" size={18} />
               <input 
                 type="text" 
                 placeholder="Global search..." 
-                className="pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5 dark:text-white w-64 transition-all"
+                className="pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5 dark:text-white w-48 md:w-64 transition-all"
               />
             </div>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -241,6 +272,7 @@ export default function App() {
               {activeTab === 'dashboard' && <Dashboard items={inventory.items} history={inventory.history} />}
               {activeTab === 'inventory' && <InventoryList inventory={inventory} />}
               {activeTab === 'history' && <HistoryLogs history={inventory.history} />}
+              {activeTab === 'analytics' && <AnalyticsDashboard items={inventory.items} history={inventory.history} />}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -277,6 +309,11 @@ export default function App() {
           </>
         )}
       </AnimatePresence>
+      <QuickActionModal
+        isOpen={isQuickActionOpen}
+        onClose={() => setIsQuickActionOpen(false)}
+        inventory={inventory}
+      />
     </div>
   );
 }
