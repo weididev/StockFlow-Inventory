@@ -67,52 +67,73 @@ export default function App() {
       };
       
       const jsonString = JSON.stringify(backupData, null, 2);
-      const fileName = `stockflow-backup-${new Date().toISOString().slice(0,10)}.txt`;
-      const file = new File([jsonString], fileName, { type: 'text/plain' });
-  
-      const downloadFallback = () => {
-        try {
-          const blob = new Blob([jsonString], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.style.display = 'none';
-          a.href = url;
-          a.download = fileName.replace('.txt', '.json');
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => {
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-          }, 100);
-        } catch (e) {
-          console.error("Fallback download failed:", e);
+      const fileNameStr = `stockflow-backup-${new Date().toISOString().slice(0, 10)}`;
+
+      // Try copy to clipboard as a first backup measure for webviews
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(jsonString);
         }
-      };
-  
-      if (typeof navigator !== 'undefined' && navigator.share) {
-        try {
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      } catch (err) {
+        console.warn("Clipboard copy failed");
+      }
+
+      // Web Share API works well on mobile devices
+      if (navigator.share) {
+        // Using .txt file because many mobile apps (WhatsApp, Drive) handle text files better than .json
+        const file = new File([jsonString], `${fileNameStr}.txt`, { type: 'text/plain' });
+        
+        let shared = false;
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
             await navigator.share({
               files: [file],
               title: 'StockFlow Backup',
-              text: 'StockFlow DB Backup'
+              text: 'StockFlow Database Backup'
             });
-          } else {
-            console.warn("File sharing not supported on this platform. Falling back to local download.");
-            downloadFallback();
-          }
-        } catch (err: any) {
-          if (err.name !== 'AbortError') {
-            console.error("System share failed:", err);
-            downloadFallback();
+            shared = true;
+          } catch (shareErr: any) {
+            if (shareErr.name === 'AbortError') return;
+            console.error("File share failed, trying text", shareErr);
           }
         }
-      } else {
-        downloadFallback();
+        
+        if (!shared) {
+          try {
+            // Fallback: Just share the raw JSON text if file sharing fails
+            await navigator.share({
+              title: 'StockFlow Backup',
+              text: jsonString
+            });
+            shared = true;
+          } catch (shareErr2: any) {
+             if (shareErr2.name === 'AbortError') return;
+             console.error("Text share failed", shareErr2);
+          }
+        }
+        
+        if (shared) return; // Mission accomplished
       }
+
+      // Fallback: traditional file download if sharing isn't available or fails
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileNameStr}.json`;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 500);
+
+      alert("Backup initiated! (Data was also copied to clipboard as a fallback)");
     } catch (error) {
       console.error("Export process failed:", error);
-      alert("Failed to export database.");
+      alert("Failed to export database: " + error);
     }
   };
 
