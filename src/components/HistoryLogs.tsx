@@ -1,4 +1,5 @@
-import { TrendingUp, TrendingDown, Clock, Search, Filter, Download } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { TrendingUp, TrendingDown, Clock, Search, Filter, Download, ArrowDownRight, Package } from 'lucide-react';
 import { Transaction } from '../types';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
@@ -8,22 +9,66 @@ interface HistoryLogsProps {
 }
 
 export function HistoryLogs({ history }: HistoryLogsProps) {
+  const [selectedType, setSelectedType] = useState<string>('ALL');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const categories = useMemo(() => {
+    const cats = new Set(history.map(h => h.itemCategory || 'General'));
+    return ['All', ...Array.from(cats)].sort();
+  }, [history]);
+
+  const filteredHistory = history.filter(h => {
+    const matchSearch = h.itemName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchType = selectedType === 'ALL' || h.type === selectedType;
+    const matchCategory = selectedCategory === 'All' || (h.itemCategory || 'General') === selectedCategory;
+    return matchSearch && matchType && matchCategory;
+  });
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-           <div className="relative">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input 
                 type="text" 
                 placeholder="Search history..." 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
                 className="pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 w-full sm:w-64 dark:text-white"
               />
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-800 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:text-gray-300">
-              <Filter size={16} />
-              <span>Type</span>
-            </button>
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="pl-10 pr-8 py-2 appearance-none border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black/5"
+              >
+                <option value="ALL">All Types</option>
+                <option value="IN">Inflow Only</option>
+                <option value="OUT">Outflow Only</option>
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <ArrowDownRight size={14} className="text-gray-400" />
+              </div>
+            </div>
+            <div className="relative">
+              <Package className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="pl-10 pr-8 py-2 appearance-none border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black/5"
+              >
+                {categories.map(c => (
+                  <option key={c} value={c}>{c === 'All' ? 'All Categories' : c}</option>
+                ))}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <ArrowDownRight size={14} className="text-gray-400" />
+              </div>
+            </div>
         </div>
         <button 
           onClick={() => {
@@ -58,12 +103,12 @@ export function HistoryLogs({ history }: HistoryLogsProps) {
 
       <div className="bg-white dark:bg-gray-950 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-x-auto">
         <div className="flex flex-col min-w-[500px]">
-          {history.map((log, index) => (
+          {filteredHistory.map((log, index) => (
             <div 
               key={log.id} 
               className={cn(
                 "flex items-center justify-between p-6 hover:bg-gray-50/50 dark:hover:bg-gray-900/50 transition-colors",
-                index !== history.length - 1 && "border-b border-gray-50 dark:border-gray-800"
+                index !== filteredHistory.length - 1 && "border-b border-gray-50 dark:border-gray-800"
               )}
             >
               <div className="flex items-center gap-6">
@@ -106,7 +151,7 @@ export function HistoryLogs({ history }: HistoryLogsProps) {
               </div>
             </div>
           ))}
-          {history.length === 0 && (
+          {filteredHistory.length === 0 && (
             <div className="py-32 text-center flex flex-col items-center justify-center gap-4 text-gray-400">
               <div className="w-16 h-16 bg-gray-50 dark:bg-gray-900 rounded-full flex items-center justify-center">
                 <Clock size={32} className="opacity-20" />
