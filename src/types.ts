@@ -25,6 +25,7 @@ export interface Notification {
   id: string;
   itemId: string;
   message: string;
+  type: 'LOW_STOCK' | 'SMART_SUGGESTION' | 'SYSTEM';
   timestamp: string;
   read: boolean;
 }
