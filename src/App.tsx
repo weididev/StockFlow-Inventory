@@ -60,23 +60,29 @@ export default function App() {
   const exportBackup = async () => {
     try {
       const backupData = {
-        inventory: JSON.stringify(inventory.items),
-        history: JSON.stringify(inventory.history),
-        notifications: JSON.stringify(inventory.notifications),
-        exportedBy: "StockFlow System",
+        inventory: inventory.items,
+        history: inventory.history,
+        notifications: inventory.notifications,
         exportedAt: new Date().toISOString()
       };
       
-      const fileName = `stockflow-backup-${new Date().toISOString().slice(0,10)}.json`;
       const jsonString = JSON.stringify(backupData, null, 2);
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const file = new File([blob], fileName, { type: 'application/json' });
+      
+      try {
+        await navigator.clipboard.writeText(jsonString);
+      } catch (err) {
+        console.warn("Clipboard copy failed:", err);
+      }
+
+      const fileName = `stockflow-backup-${new Date().toISOString().slice(0,10)}.txt`;
+      const file = new File([jsonString], fileName, { type: 'text/plain' });
   
       const downloadFallback = () => {
+        const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = fileName;
+        a.download = fileName.replace('.txt', '.json');
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -85,17 +91,18 @@ export default function App() {
   
       if (navigator.share) {
         try {
-          const shareData: any = {
+          const shareData: ShareData = {
             title: 'StockFlow DB Backup',
-            text: 'System generated inventory backup file.',
+            text: 'System generated inventory backup file.'
           };
           
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
             shareData.files = [file];
+          } else {
+            shareData.text = jsonString;
           }
           
           await navigator.share(shareData);
-          return;
         } catch (err) {
           if ((err as Error).name !== 'AbortError') {
             console.error("System share failed:", err);
@@ -114,7 +121,7 @@ export default function App() {
   const importBackup = () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'application/json';
+    input.accept = 'application/json, text/plain, .json, .txt';
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
