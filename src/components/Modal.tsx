@@ -28,21 +28,21 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             className={cn(
-              "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-3xl shadow-2xl z-[51] p-8",
+              "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white dark:bg-gray-950 border border-gray-100 dark:border-gray-800 rounded-3xl shadow-2xl z-[51] p-8",
               className
             )}
-          >
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xl font-bold">{title}</h3>
-              <button 
-                onClick={onClose}
-                className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            {children}
-          </motion.div>
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-xl font-bold dark:text-white">{title}</h3>
+                <button 
+                  onClick={onClose}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <X size={20} className="text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+              {children}
+            </motion.div>
         </>
       )}
     </AnimatePresence>
