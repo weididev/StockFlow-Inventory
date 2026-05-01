@@ -42,56 +42,64 @@ export function Dashboard({ items, history, onNavigate }: DashboardProps) {
 
   const StatCard = ({ icon: Icon, label, value, colorClass, subText, onClick }: any) => (
     <button 
+      id={`stat-card-${label.toLowerCase().replace(/\s+/g, '-')}`}
       onClick={onClick}
-      className="bg-white dark:bg-gray-950 p-4 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow flex flex-col text-left group"
+      className={cn(
+        "bg-white dark:bg-gray-900 p-4 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm",
+        "hover:shadow-2xl hover:shadow-black/5 dark:hover:shadow-white/5 hover:-translate-y-1 transition-all duration-500",
+        "flex flex-col text-left group relative overflow-hidden h-full"
+      )}
     >
-      <div className="flex items-center gap-3 mb-3 w-full">
-        <div className={cn("p-2 rounded-xl group-hover:scale-105 transition-transform", colorClass)}>
-          <Icon size={18} className="text-white" />
+      <div className={cn("absolute -right-4 -top-4 w-16 h-16 opacity-10 group-hover:scale-150 transition-transform duration-700 rounded-full", colorClass)} />
+      
+      <div className="flex items-center gap-2 mb-3 w-full relative z-10">
+        <div className={cn("p-2 rounded-xl group-hover:rotate-12 transition-transform shadow-lg shadow-black/10", colorClass)}>
+          <Icon size={14} className="text-white" />
         </div>
-        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{label}</span>
+        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] leading-none">{label}</span>
       </div>
-      <div className="flex flex-col">
-        <span className="text-2xl font-bold dark:text-white leading-none mb-1">{value}</span>
-        <span className="text-[10px] text-gray-400 leading-tight">{subText}</span>
+      
+      <div className="mt-auto relative z-10">
+        <span className="text-2xl font-black dark:text-white leading-none tracking-tight block mb-1">{value}</span>
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold leading-tight line-clamp-1 opacity-80">{subText}</p>
       </div>
     </button>
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 px-1">
         <StatCard 
           icon={Package} 
           label="Total Stock" 
           value={totalItems} 
-          colorClass="bg-black dark:bg-gray-800" 
-          subText="Current items across all categories"
+          colorClass="bg-indigo-600" 
+          subText="Items In Catalog"
           onClick={() => onNavigate?.('inventory')}
         />
         <StatCard 
           icon={AlertTriangle} 
           label="Low Stock" 
           value={lowStockItems.length} 
-          colorClass="bg-amber-500" 
-          subText="Items requiring restock"
+          colorClass="bg-orange-500" 
+          subText="Restock Required"
           onClick={() => onNavigate?.('inventory')}
         />
         <StatCard 
           icon={TrendingUp} 
-          label="Stock In" 
+          label="In Stock" 
           value={history.filter(h => h.type === 'IN').length} 
           colorClass="bg-emerald-500" 
-          subText="Total refills processed"
+          subText="Refills Logged"
           onClick={() => onNavigate?.('inventory')}
         />
         <StatCard 
           icon={TrendingDown} 
-          label="Stock Out" 
+          label="Out Stock" 
           value={history.filter(h => h.type === 'OUT').length} 
-          colorClass="bg-red-500" 
-          subText="Distribution requests handled"
+          colorClass="bg-rose-500" 
+          subText="Units Issued"
           onClick={() => onNavigate?.('history')}
         />
       </div>
