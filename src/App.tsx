@@ -86,11 +86,21 @@ export default function App() {
           text: 'Here is my StockFlow data backup.',
         });
       } catch (err) {
-         console.error("Error sharing", err);
-         downloadFallback();
+        console.error("Error sharing", err);
+        downloadFallback();
       }
     } else {
-      downloadFallback();
+      if (navigator.share) {
+        try {
+          // If files can't be shared, maybe the user wants to share via Web Share API
+          // but we can't share local blob URLs easily. So we fallback to download.
+          downloadFallback();
+        } catch (err) {
+          downloadFallback();
+        }
+      } else {
+        downloadFallback();
+      }
     }
   };
 
@@ -269,7 +279,7 @@ export default function App() {
               transition={{ duration: 0.2 }}
               className="h-full"
             >
-              {activeTab === 'dashboard' && <Dashboard items={inventory.items} history={inventory.history} />}
+              {activeTab === 'dashboard' && <Dashboard items={inventory.items} history={inventory.history} onNavigate={setActiveTab} />}
               {activeTab === 'inventory' && <InventoryList inventory={inventory} />}
               {activeTab === 'history' && <HistoryLogs history={inventory.history} />}
               {activeTab === 'analytics' && <AnalyticsDashboard items={inventory.items} history={inventory.history} />}
