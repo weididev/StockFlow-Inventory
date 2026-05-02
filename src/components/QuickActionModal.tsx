@@ -169,16 +169,50 @@ export function QuickActionModal({ isOpen, onClose, inventory }: QuickActionModa
 
           {tab === 'IN' && (
             <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 relative">
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Category</label>
-                <input 
-                  required
-                  type="text" 
-                  placeholder="e.g. Stationery"
-                  className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:text-white"
-                  value={formData.category}
-                  onChange={e => setFormData({...formData, category: e.target.value})}
-                />
+                <div className="relative">
+                  <input 
+                    required
+                    type="text" 
+                    placeholder="e.g. Stationery"
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:text-white"
+                    value={formData.category}
+                    onChange={e => setFormData({...formData, category: e.target.value})}
+                    onFocus={() => {
+                      const list = document.getElementById('quick-category-suggestions');
+                      if (list) list.style.display = 'block';
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => {
+                        const list = document.getElementById('quick-category-suggestions');
+                        if (list) list.style.display = 'none';
+                      }, 200);
+                    }}
+                  />
+                  <div
+                    id="quick-category-suggestions" 
+                    className="hidden absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl shadow-xl overflow-hidden z-40 max-h-48 overflow-y-auto"
+                  >
+                    {Array.from(new Set(inventory.items.map(item => item.category)))
+                      .filter(cat => cat.toLowerCase().includes(formData.category.toLowerCase()) || formData.category === '')
+                      .map((cat, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:text-white border-b border-gray-50 dark:border-gray-800 last:border-0"
+                        onClick={() => {
+                          setFormData({...formData, category: cat});
+                          const list = document.getElementById('quick-category-suggestions');
+                          if (list) list.style.display = 'none';
+                        }}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Unit</label>
