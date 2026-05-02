@@ -66,31 +66,81 @@ export default function App() {
         exportedAt: new Date().toISOString()
       };
       
-      const fileName = `stockflow-db-${new Date().toISOString().slice(0,10)}.json`;
+      const fileName = `stockflow-db-${new Date().toISOString().slice(0,10)}.txt`;
       const jsonString = JSON.stringify(backupData, null, 2);
       
-      // CREATE BLOB ("CACHE MEMORY" / "CATCH MEMORY") AND SHARE DIRECTLY
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const file = new File([blob], fileName, { type: 'application/json' });
+      let shared = false;
 
-      if (navigator.share) {
-        await navigator.share({
-          files: [file],
-          title: 'StockFlow Backup',
-          text: 'StockFlow DB Backup'
-        });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+      // 1. Try file sharing first
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        try {
+          const blob = new Blob([jsonString], { type: 'text/plain' });
+          const file = new File([blob], fileName, { type: 'text/plain' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: 'StockFlow Backup',
+              text: 'StockFlow DB Backup'
+            });
+            shared = true;
+          }
+        } catch (error: any) {
+          if (error.name === 'AbortError' || (error.message && error.message.includes('Share canceled'))) {
+             return;
+          }
+          console.log("File sharing not supported, trying text sharing", error);
+        }
+
+        // 2. Fallback to raw text sharing (Reliable on Android WebViews)
+        if (!shared) {
+          try {
+            await navigator.share({
+              title: 'StockFlow Backup Data',
+              text: jsonString
+            });
+            shared = true;
+          } catch (textError: any) {
+            if (textError.name === 'AbortError' || (textError.message && textError.message.includes('Share canceled'))) {
+               return;
+            }
+            console.error("Text sharing failed", textError);
+          }
+        }
+      }
+
+      // 3. Absolute fallback (Copy to Clipboard / Alert)
+      if (!shared) {
+        try {
+          const textArea = document.createElement("textarea");
+          textArea.value = jsonString;
+          textArea.style.position = "fixed"; 
+          textArea.style.left = "-999999px";
+          textArea.style.top = "-999999px";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          document.execCommand("copy");
+          textArea.remove();
+          alert("Backup data copied to clipboard! ✅\n\nSave this text somewhere safe (like Notes or WhatsApp) because your device doesn't support direct file sharing.");
+        } catch (copyErr) {
+          // If we are on Desktop, trigger standard download as last resort
+          const blob = new Blob([jsonString], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+          a.download = fileName.replace('.txt', '.json');
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }, 100);
+        }
       }
     } catch (error) {
       console.error("Backup export failed:", error);
+      alert("Failed to export backup. Please try again.");
     }
   };
 
