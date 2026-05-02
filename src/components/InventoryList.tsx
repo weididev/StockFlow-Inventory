@@ -334,11 +334,8 @@ export function InventoryList({ inventory }: InventoryListProps) {
                     value={formData.category}
                     onChange={e => setFormData({...formData, category: e.target.value})}
                     onFocus={() => {
-                      // Small delay to allow the layout to settle
-                      setTimeout(() => {
-                        const list = document.getElementById('category-suggestions-dropdown');
-                        if (list) list.style.display = 'block';
-                      }, 50);
+                      const list = document.getElementById('category-suggestions-dropdown');
+                      if (list) list.style.display = 'block';
                     }}
                     onBlur={() => {
                       setTimeout(() => {
@@ -357,6 +354,7 @@ export function InventoryList({ inventory }: InventoryListProps) {
                       <button
                         key={idx}
                         type="button"
+                        onPointerDown={(e) => e.preventDefault()}
                         className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:text-white border-b border-gray-50 dark:border-gray-800 last:border-0"
                         onClick={() => {
                           setFormData({...formData, category: cat});
