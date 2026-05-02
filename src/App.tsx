@@ -30,6 +30,7 @@ import { HistoryLogs } from './components/HistoryLogs';
 import { NotificationsPanel } from './components/NotificationsPanel';
 import { QuickActionModal } from './components/QuickActionModal';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
+import { Modal } from './components/Modal';
 
 type Tab = 'dashboard' | 'inventory' | 'history' | 'analytics';
 
@@ -42,6 +43,8 @@ export default function App() {
   });
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
+  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
+  const [restoreText, setRestoreText] = useState('');
   const inventory = useInventory();
   
   const unreadCount = inventory.notifications.filter(n => !n.read).length;
@@ -66,119 +69,80 @@ export default function App() {
         exportedAt: new Date().toISOString()
       };
       
-      const fileName = `stockflow-db-${new Date().toISOString().slice(0,10)}.txt`;
+      const fileName = `stockflow-db-${new Date().toISOString().slice(0,10)}.json`;
       const jsonString = JSON.stringify(backupData, null, 2);
       
-      let shared = false;
+      const file = new File([jsonString], fileName, { type: 'application/json' });
 
-      // 1. Try file sharing first
-      if (typeof navigator !== 'undefined' && navigator.share) {
-        try {
-          const blob = new Blob([jsonString], { type: 'text/plain' });
-          const file = new File([blob], fileName, { type: 'text/plain' });
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              files: [file],
-              title: 'StockFlow Backup',
-              text: 'StockFlow DB Backup'
-            });
-            shared = true;
-          }
-        } catch (error: any) {
-          if (error.name === 'AbortError' || (error.message && error.message.includes('Share canceled'))) {
-             return;
-          }
-          console.log("File sharing not supported, trying text sharing", error);
-        }
-
-        // 2. Fallback to raw text sharing (Reliable on Android WebViews)
-        if (!shared) {
-          try {
-            await navigator.share({
-              title: 'StockFlow Backup Data',
-              text: jsonString
-            });
-            shared = true;
-          } catch (textError: any) {
-            if (textError.name === 'AbortError' || (textError.message && textError.message.includes('Share canceled'))) {
-               return;
-            }
-            console.error("Text sharing failed", textError);
-          }
-        }
-      }
-
-      // 3. Absolute fallback (Copy to Clipboard / Alert)
-      if (!shared) {
-        try {
-          const textArea = document.createElement("textarea");
-          textArea.value = jsonString;
-          textArea.style.position = "fixed"; 
-          textArea.style.left = "-999999px";
-          textArea.style.top = "-999999px";
-          document.body.appendChild(textArea);
-          textArea.focus();
-          textArea.select();
-          document.execCommand("copy");
-          textArea.remove();
-          alert("Backup data copied to clipboard! ✅\n\nSave this text somewhere safe (like Notes or WhatsApp) because your device doesn't support direct file sharing.");
-        } catch (copyErr) {
-          // If we are on Desktop, trigger standard download as last resort
-          const blob = new Blob([jsonString], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.style.display = 'none';
-          a.href = url;
-          a.download = fileName.replace('.txt', '.json');
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => {
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-          }, 100);
-        }
+      if (navigator.share) {
+        await navigator.share({
+          files: [file],
+          title: 'StockFlow Backup',
+          text: 'StockFlow DB Backup'
+        });
+      } else {
+        // Fallback specifically for desktop/PC where share is not available
+        const url = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
       }
     } catch (error) {
-      console.error("Backup export failed:", error);
-      alert("Failed to export backup. Please try again.");
+      console.error("Share failed", error);
     }
   };
 
-  const importBackup = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json, text/plain, .json, .txt';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const contentStr = e.target?.result as string;
-          const data = JSON.parse(contentStr);
-          
-          // Support both direct arrays (new) and stringified (old storage style)
-          const setStorage = (key: string, val: any) => {
-            if (typeof val === 'string') {
-              localStorage.setItem(key, val);
-            } else if (val) {
-              localStorage.setItem(key, JSON.stringify(val));
-            }
-          };
-
-          if (data.inventory || data.items) setStorage('inventory_items', data.inventory || data.items);
-          if (data.history) setStorage('inventory_history', data.history);
-          if (data.notifications) setStorage('inventory_notifications', data.notifications);
-          
-          alert("Import successful! The app will now reload.");
-          window.location.reload();
-        } catch (err) {
-          alert("Could not process the backup file. Please ensure it is a valid StockFlow JSON file.");
-        }
-      };
-      reader.readAsText(file);
+  const processImportData = (data: any) => {
+    // Support both direct arrays (new) and stringified (old storage style)
+    const setStorage = (key: string, val: any) => {
+      if (typeof val === 'string') {
+        localStorage.setItem(key, val);
+      } else if (val) {
+        localStorage.setItem(key, JSON.stringify(val));
+      }
     };
-    input.click();
+
+    if (data.inventory || data.items) setStorage('inventory_items', data.inventory || data.items);
+    if (data.history) setStorage('inventory_history', data.history);
+    if (data.notifications) setStorage('inventory_notifications', data.notifications);
+    
+    alert("Import successful! The app will now reload.");
+    window.location.reload();
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        processImportData(data);
+      } catch (err) {
+        alert("Could not process the backup file. Please ensure it is a valid JSON file.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handlePasteImport = () => {
+    try {
+      if (!restoreText.trim()) {
+        alert("Please paste the backup text first.");
+        return;
+      }
+      const data = JSON.parse(restoreText);
+      processImportData(data);
+    } catch (err) {
+      alert("Invalid backup data. Please make sure you copied the entire text correctly.");
+    }
   };
 
   const NavItem = ({ icon: Icon, label, tab }: { icon: any, label: string, tab: Tab }) => (
@@ -253,7 +217,7 @@ export default function App() {
           </button>
           
           <button
-            onClick={importBackup}
+            onClick={() => setIsRestoreModalOpen(true)}
             className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-black dark:hover:text-gray-300"
           >
             <UploadCloud size={20} />
@@ -374,6 +338,46 @@ export default function App() {
         onClose={() => setIsQuickActionOpen(false)}
         inventory={inventory}
       />
+
+      {/* Restore Data Modal */}
+      <Modal isOpen={isRestoreModalOpen} onClose={() => setIsRestoreModalOpen(false)} title="Restore Backup Data">
+        <div className="flex flex-col gap-6">
+          <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-4 rounded-xl text-sm">
+            You can restore your data either by choosing a backup file, or by directly pasting the backup text you saved (if your device doesn't support file saving).
+          </div>
+          
+          <div>
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">1. Upload File</label>
+            <input 
+              type="file" 
+              accept=".json,.txt"
+              className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-black file:text-white dark:file:bg-white dark:file:text-black hover:file:opacity-90 transition-opacity file:cursor-pointer p-0"
+              onChange={handleFileUpload}
+            />
+          </div>
+
+          <div className="relative flex items-center justify-center">
+            <div className="border-t border-gray-200 dark:border-gray-800 absolute w-full"></div>
+            <span className="bg-white dark:bg-gray-950 px-3 z-10 text-xs text-gray-400 uppercase font-bold tracking-widest">Or Paste Text</span>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block">2. Paste Backup Text</label>
+            <textarea
+              className="w-full h-32 px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:text-white font-mono resize-none"
+              placeholder='Paste the full JSON text here starting with { ... }'
+              value={restoreText}
+              onChange={(e) => setRestoreText(e.target.value)}
+            />
+            <button
+              onClick={handlePasteImport}
+              className="px-6 py-3 mt-2 bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md font-bold rounded-xl"
+            >
+              Restore from Text
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
