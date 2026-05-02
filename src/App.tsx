@@ -20,7 +20,10 @@ import {
   DatabaseBackup,
   UploadCloud,
   Menu,
-  Plus
+  Plus,
+  Share2,
+  Download,
+  Copy
 } from 'lucide-react';
 import { useInventory } from './hooks/useInventory';
 import { cn } from './lib/utils';
@@ -45,6 +48,10 @@ export default function App() {
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
   const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
   const [restoreText, setRestoreText] = useState('');
+  
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportDataString, setExportDataString] = useState('');
+  
   const inventory = useInventory();
   
   const unreadCount = inventory.notifications.filter(n => !n.read).length;
@@ -60,78 +67,17 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  const exportBackup = async () => {
-    try {
-      const backupData = {
-        inventory: inventory.items,
-        history: inventory.history,
-        notifications: inventory.notifications,
-        exportedAt: new Date().toISOString()
-      };
-      
-      const fileName = `stockflow-db-${new Date().toISOString().slice(0,10)}.json`;
-      const jsonString = JSON.stringify(backupData, null, 2);
-      
-      let sharedSuccessfully = false;
-
-      // STEP 1: Try Native Web Share API with a File object
-      // WebViews often block Blob/File sharing for security, but we try it first.
-      if (typeof navigator !== 'undefined' && navigator.share) {
-        try {
-          const file = new File([jsonString], fileName, { type: 'text/plain' });
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              files: [file],
-              title: 'StockFlow Backup',
-              text: 'StockFlow DB Backup'
-            });
-            sharedSuccessfully = true;
-          }
-        } catch (error: any) {
-          // If user closed the popup deliberately
-          if (error.name === 'AbortError' || (error.message && error.message.includes('Share canceled'))) {
-             return; 
-          }
-          console.warn("File sharing blocked by WebView, falling back...", error);
-        }
-
-        // STEP 2: Fallback to sharing raw text (Almost always works in Android WebViews)
-        if (!sharedSuccessfully) {
-          try {
-            await navigator.share({
-              title: 'StockFlow JSON Backup',
-              text: jsonString
-            });
-            sharedSuccessfully = true;
-          } catch (textError: any) {
-            if (textError.name === 'AbortError' || (textError.message && textError.message.includes('Share canceled'))) {
-               return; 
-            }
-            console.error("Text sharing also blocked", textError);
-          }
-        }
-      }
-
-      // STEP 3: Fallback to Data URI Download (WebViews process this better than Blob URLs)
-      if (!sharedSuccessfully) {
-        try {
-          const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(jsonString)}`;
-          const a = document.createElement('a');
-          a.style.display = 'none';
-          a.href = dataUri;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => document.body.removeChild(a), 100);
-        } catch (uriError) {
-           console.error("Download fallback failed.", uriError);
-           alert("Your app container blocked the share feature. Please use a regular browser.");
-        }
-      }
-      
-    } catch (error) {
-      console.error("Share failed", error);
-    }
+  const exportBackup = () => {
+    const backupData = {
+      inventory: inventory.items,
+      history: inventory.history,
+      notifications: inventory.notifications,
+      exportedAt: new Date().toISOString()
+    };
+    
+    const jsonString = JSON.stringify(backupData, null, 2);
+    setExportDataString(jsonString);
+    setIsExportModalOpen(true);
   };
 
   const processImportData = (data: any) => {
@@ -409,6 +355,115 @@ export default function App() {
               className="px-6 py-3 mt-2 bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md font-bold rounded-xl"
             >
               Restore from Text
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Export Data Modal */}
+      <Modal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} title="Export Backup Data">
+        <div className="flex flex-col gap-6">
+          <div className="bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 p-4 rounded-xl text-sm">
+            Your backup data is ready! Choose how you want to export and save it.
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button 
+              onClick={async () => {
+                 const fileName = `stockflow-db-${new Date().toISOString().slice(0,10)}.json`;
+                 if (navigator.share) {
+                   try {
+                     const file = new File([exportDataString], fileName, { type: 'text/plain' });
+                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                       await navigator.share({
+                         files: [file],
+                         title: 'StockFlow Backup',
+                       });
+                       return;
+                     }
+                   } catch (e: any) {
+                     if (e.name === 'AbortError' || String(e).includes('canceled')) return;
+                   }
+
+                   // Fallback to text share
+                   try {
+                     await navigator.share({
+                       title: 'StockFlow Backup Data',
+                       text: exportDataString
+                     });
+                   } catch(err2: any) {
+                     if (err2.name === 'AbortError' || String(err2).includes('canceled')) return;
+                     alert("Your device doesn't support direct app sharing. Please use 'Copy Text' instead.");
+                   }
+                 } else {
+                   alert("Sharing is not supported on this browser.");
+                 }
+              }}
+              className="flex items-center justify-center gap-3 px-4 py-4 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold transition-all hover:scale-[1.02] active:scale-95 shadow-md border border-transparent"
+            >
+              <Share2 size={20} />
+              Share Details
+            </button>
+
+            <button 
+              onClick={() => {
+                const fileName = `stockflow-db-${new Date().toISOString().slice(0,10)}.json`;
+                try {
+                  const blob = new Blob([exportDataString], { type: 'application/json' });
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.style.display = 'none';
+                  a.href = url;
+                  a.download = fileName;
+                  document.body.appendChild(a);
+                  a.click();
+                  setTimeout(() => {
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                  }, 100);
+                } catch(e) {
+                  const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(exportDataString)}`;
+                  const a = document.createElement('a');
+                  a.style.display = 'none';
+                  a.href = dataUri;
+                  a.download = fileName;
+                  document.body.appendChild(a);
+                  a.click();
+                  setTimeout(() => document.body.removeChild(a), 100);
+                }
+              }}
+              className="flex items-center justify-center gap-3 px-4 py-4 bg-gray-100 dark:bg-gray-800 text-black dark:text-white rounded-xl font-bold transition-all hover:scale-[1.02] active:scale-95"
+            >
+              <Download size={20} />
+              Save to Device
+            </button>
+          </div>
+
+          <div className="relative flex items-center justify-center mt-2">
+            <div className="border-t border-gray-200 dark:border-gray-800 absolute w-full"></div>
+            <span className="bg-white dark:bg-gray-950 px-3 z-10 text-xs text-gray-400 uppercase font-bold tracking-widest">Manual Backup</span>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block">Copy Backup Text</label>
+            <p className="text-xs text-gray-500 mb-2 leading-relaxed">If Share or Download fails on this device, manually copy this raw text and save it to a safe place (like a Note app).</p>
+            <div className="relative">
+              <textarea
+                readOnly
+                className="w-full h-32 px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl text-sm focus:outline-none dark:text-white font-mono resize-none text-[10px]"
+                value={exportDataString}
+              />
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(exportDataString)
+                  .then(() => alert("Copy Success! Default text copied to clipboard. Paste and save it securely!"))
+                  .catch(() => alert("Clipboard write failed! Please select the text above, long press and choose 'Copy'."));
+              }}
+              className="flex items-center justify-center gap-2 px-6 py-3 mt-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-black dark:text-white transition-all font-bold rounded-xl"
+            >
+              <Copy size={18} />
+              Copy Raw Text
             </button>
           </div>
         </div>
