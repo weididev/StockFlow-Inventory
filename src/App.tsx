@@ -72,28 +72,63 @@ export default function App() {
       const fileName = `stockflow-db-${new Date().toISOString().slice(0,10)}.json`;
       const jsonString = JSON.stringify(backupData, null, 2);
       
-      const file = new File([jsonString], fileName, { type: 'application/json' });
+      let sharedSuccessfully = false;
 
-      if (navigator.share) {
-        await navigator.share({
-          files: [file],
-          title: 'StockFlow Backup',
-          text: 'StockFlow DB Backup'
-        });
-      } else {
-        // Fallback specifically for desktop/PC where share is not available
-        const url = URL.createObjectURL(file);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }, 100);
+      // STEP 1: Try Native Web Share API with a File object
+      // WebViews often block Blob/File sharing for security, but we try it first.
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        try {
+          const file = new File([jsonString], fileName, { type: 'text/plain' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: 'StockFlow Backup',
+              text: 'StockFlow DB Backup'
+            });
+            sharedSuccessfully = true;
+          }
+        } catch (error: any) {
+          // If user closed the popup deliberately
+          if (error.name === 'AbortError' || (error.message && error.message.includes('Share canceled'))) {
+             return; 
+          }
+          console.warn("File sharing blocked by WebView, falling back...", error);
+        }
+
+        // STEP 2: Fallback to sharing raw text (Almost always works in Android WebViews)
+        if (!sharedSuccessfully) {
+          try {
+            await navigator.share({
+              title: 'StockFlow JSON Backup',
+              text: jsonString
+            });
+            sharedSuccessfully = true;
+          } catch (textError: any) {
+            if (textError.name === 'AbortError' || (textError.message && textError.message.includes('Share canceled'))) {
+               return; 
+            }
+            console.error("Text sharing also blocked", textError);
+          }
+        }
       }
+
+      // STEP 3: Fallback to Data URI Download (WebViews process this better than Blob URLs)
+      if (!sharedSuccessfully) {
+        try {
+          const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(jsonString)}`;
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = dataUri;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => document.body.removeChild(a), 100);
+        } catch (uriError) {
+           console.error("Download fallback failed.", uriError);
+           alert("Your app container blocked the share feature. Please use a regular browser.");
+        }
+      }
+      
     } catch (error) {
       console.error("Share failed", error);
     }
