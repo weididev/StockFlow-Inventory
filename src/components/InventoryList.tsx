@@ -26,6 +26,7 @@ interface InventoryListProps {
 
 export function InventoryList({ inventory }: InventoryListProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isGiveModalOpen, setIsGiveModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -44,12 +45,19 @@ export function InventoryList({ inventory }: InventoryListProps) {
     notes: '',
   });
 
+  const categories = useMemo(() => {
+    const cats = new Set(inventory.items.map(i => i.category));
+    return ['All', ...Array.from(cats)].sort();
+  }, [inventory.items]);
+
   const filteredItems = useMemo(() => {
-    return inventory.items.filter(item => 
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [inventory.items, searchQuery]);
+    return inventory.items.filter(item => {
+      const matchSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          item.category.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchCat = selectedCategory === 'All' || item.category === selectedCategory;
+      return matchSearch && matchCat;
+    });
+  }, [inventory.items, searchQuery, selectedCategory]);
 
   const handleAddSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -127,10 +135,21 @@ export function InventoryList({ inventory }: InventoryListProps) {
               className="pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 w-64 dark:text-white"
             />
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-800 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:text-gray-300">
-            <Filter size={16} />
-            <span>Category</span>
-          </button>
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="pl-10 pr-8 py-2 appearance-none border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black/5"
+            >
+              {categories.map(c => (
+                <option key={c} value={c}>{c === 'All' ? 'All Categories' : c}</option>
+              ))}
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+              <ArrowDownRight size={14} className="text-gray-400" />
+            </div>
+          </div>
         </div>
         <button 
           onClick={() => setIsAddModalOpen(true)}
@@ -304,22 +323,52 @@ export function InventoryList({ inventory }: InventoryListProps) {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 relative">
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Category</label>
-                <input 
-                  required
-                  type="text" 
-                  list="item-category-suggestions"
-                  placeholder="e.g. Stationery"
-                  className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:text-white"
-                  value={formData.category}
-                  onChange={e => setFormData({...formData, category: e.target.value})}
-                />
-                <datalist id="item-category-suggestions">
-                  {Array.from(new Set(inventory.items.map(item => item.category))).map((cat, idx) => (
-                    <option key={idx} value={cat} />
-                  ))}
-                </datalist>
+                <div className="relative">
+                  <input 
+                    required
+                    type="text" 
+                    placeholder="e.g. Stationery"
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:text-white"
+                    value={formData.category}
+                    onChange={e => setFormData({...formData, category: e.target.value})}
+                    onFocus={() => {
+                      // Small delay to allow the layout to settle
+                      setTimeout(() => {
+                        const list = document.getElementById('category-suggestions-dropdown');
+                        if (list) list.style.display = 'block';
+                      }, 50);
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => {
+                        const list = document.getElementById('category-suggestions-dropdown');
+                        if (list) list.style.display = 'none';
+                      }, 200);
+                    }}
+                  />
+                  <div
+                    id="category-suggestions-dropdown" 
+                    className="hidden absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl shadow-xl overflow-hidden z-30 max-h-48 overflow-y-auto"
+                  >
+                    {Array.from(new Set(inventory.items.map(item => item.category)))
+                      .filter(cat => cat.toLowerCase().includes(formData.category.toLowerCase()) || formData.category === '')
+                      .map((cat, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:text-white border-b border-gray-50 dark:border-gray-800 last:border-0"
+                        onClick={() => {
+                          setFormData({...formData, category: cat});
+                          const list = document.getElementById('category-suggestions-dropdown');
+                          if (list) list.style.display = 'none';
+                        }}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Unit</label>
